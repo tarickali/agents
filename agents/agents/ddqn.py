@@ -7,7 +7,7 @@ from agents.networks import QNetwork
 from agents.utils import unwrap_transitions
 
 
-class DQNAgent:
+class DDQNAgent:
     def __init__(
         self,
         network: QNetwork,
@@ -44,12 +44,19 @@ class DQNAgent:
 
         # Get the action values of next observations
         with torch.no_grad():
-            Q_prime = self.target_network.compute(next_observations)
-
-        Q_prime[terminals] = 0.0
+            Q_behavior_prime = self.behavior_network.compute(next_observations)
+            Q_target_prime = self.target_network.compute(next_observations)
+        Q_target_prime[terminals] = 0.0
 
         # Compute the target value to update the Q values
-        Q_targets = rewards + self.gamma * torch.max(Q_prime, dim=1)[0]
+        Q_targets = (
+            rewards
+            + self.gamma
+            * Q_target_prime[
+                np.arange(self.batch_size, dtype=np.int32),
+                torch.argmax(Q_behavior_prime, dim=1),
+            ]
+        )
 
         # Ensure that Q_targets and Q_eval have the same dtype
         Q_targets = Q_targets.to(Q_eval.dtype)
